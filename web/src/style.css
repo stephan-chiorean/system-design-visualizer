@@ -29,6 +29,24 @@ html, body {
   overflow: hidden;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  /* Dragging is how you orbit, so a drag must never begin a text selection.
+     OrbitControls swallows the click that would otherwise clear one, which
+     leaves the whole window highlighted with no way to undo it. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Prose the reader might actually want to copy stays selectable. Dragging
+   here scrolls the sidebar rather than orbiting, so there is nothing to
+   protect against. */
+#design-summary,
+#sidebar dl.meta,
+.inspector,
+.hop,
+.skill-path,
+.errors {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* The scene owns the area left of the sidebar, so "centred" means centred in
