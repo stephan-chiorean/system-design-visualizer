@@ -1,0 +1,21 @@
+{
+  "name": "system-design-visualizer",
+  "version": "1.0.0",
+  "description": "Render a system design as an interactive 3D scene you can play request flows through.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "web": "python3 -m http.server 8777 --directory web",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "validate": "node tools/validate.mjs",
+    "install-skill": "node tools/install-skill.mjs",
+    "tauri": "tauri"
+  },
+  "bin": {
+    "sdv-install-skill": "tools/install-skill.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}

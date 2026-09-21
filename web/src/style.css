@@ -341,3 +341,83 @@ dl.meta dd { margin: 0; }
   .errors { max-width: calc(100vw - 32px); bottom: calc(46vh + 16px); }
   .help { display: none; }
 }
+
+/* ---------- modal (desktop shell) ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 10, 0.68);
+  backdrop-filter: blur(4px);
+  padding: 24px;
+}
+
+.modal-card {
+  position: relative;
+  width: min(520px, 100%);
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.modal-card h2 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.01em; }
+.modal-card > p.muted { font-size: 12.5px; line-height: 1.55; margin: 0 0 16px; }
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 19px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+.modal-close:hover { color: var(--fg); }
+
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal-actions button.danger { border-color: rgba(255, 107, 107, 0.5); color: #ffbdbd; }
+.modal-actions button.danger:hover { background: rgba(255, 107, 107, 0.12); }
+
+.skill-targets { display: flex; flex-direction: column; gap: 8px; }
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.skill-row b { font-size: 13px; display: block; }
+.skill-path {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.skill-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+.skill-badge.good { color: #86e8b6; border-color: rgba(134, 232, 182, 0.4); background: rgba(134, 232, 182, 0.1); }
+.skill-badge.warn { color: var(--warn); border-color: rgba(255, 180, 87, 0.4); background: rgba(255, 180, 87, 0.1); }
+
+.skill-note { font-size: 11.5px; line-height: 1.5; color: var(--muted); margin: 12px 0 0; min-height: 17px; }
+
+/* The Tauri window hides its title bar, so the top bar has to clear the
+   traffic lights rather than sit under them. */
+:root[data-desktop] #topbar { padding-left: 84px; }
+:root[data-desktop] #stage,
+:root[data-desktop] #sidebar { top: var(--topbar-h); }

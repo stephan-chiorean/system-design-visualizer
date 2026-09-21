@@ -13,14 +13,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseDesign } from '../src/schema.js';
-import { computeLayout } from '../src/layout.js';
+import { parseDesign } from '../web/src/schema.js';
+import { computeLayout } from '../web/src/layout.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const targets = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : JSON.parse(readFileSync(join(root, 'designs/index.json'), 'utf8')).map((d) => join(root, 'designs', d.file));
+  : JSON.parse(readFileSync(join(root, 'web/designs/index.json'), 'utf8')).map((d) => join(root, 'web/designs', d.file));
 
 let failed = 0;
 

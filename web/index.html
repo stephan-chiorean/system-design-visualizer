@@ -32,6 +32,7 @@
     <select id="design-picker"></select>
   </label>
   <button id="btn-open" class="ghost" title="Open a design JSON from disk">Open JSON…</button>
+  <button id="btn-skill" class="ghost" title="Install the authoring skill for your agent" hidden>Skill</button>
   <input type="file" id="file-input" accept="application/json,.json" hidden />
 </header>
 
@@ -83,6 +84,20 @@
 
 <div id="drop-hint" class="drop-hint" hidden>
   <div class="drop-card">Drop a design JSON to render it</div>
+</div>
+
+<div id="skill-modal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="skill-heading">
+    <h2 id="skill-heading">Authoring skill</h2>
+    <p class="muted">
+      Installs the skill that teaches your coding agent to write designs this app can render.
+      Afterwards, ask it to visualize a system design and it will produce the JSON for you.
+    </p>
+    <div id="skill-targets" class="skill-targets"></div>
+    <p id="skill-note" class="skill-note"></p>
+    <div id="skill-actions" class="modal-actions"></div>
+    <button id="skill-close" class="modal-close" aria-label="Close">×</button>
+  </div>
 </div>
 
 <div id="errors" class="errors" hidden></div>

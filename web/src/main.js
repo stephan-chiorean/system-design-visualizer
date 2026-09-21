@@ -18,6 +18,7 @@ import { buildEdges } from './scene/edges.js';
 import { buildStage, addLighting } from './scene/stage.js';
 import { FlowPlayer } from './flows.js';
 import * as ui from './ui.js';
+import { isDesktop, initSkillPanel, initNativeOpen } from './desktop.js';
 
 const canvas = document.getElementById('canvas');
 
@@ -367,6 +368,18 @@ renderer.setAnimationLoop(() => {
 });
 
 // ---------------------------------------------------------------- boot
+
+if (isDesktop()) {
+  document.documentElement.dataset.desktop = '';
+  initSkillPanel();
+  initNativeOpen((text, path) => {
+    try {
+      applyRaw(JSON.parse(text));
+    } catch (error) {
+      ui.showDiagnostics([`${path} is not valid JSON: ${error.message}`], []);
+    }
+  });
+}
 
 resize();
 
