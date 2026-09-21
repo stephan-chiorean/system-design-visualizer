@@ -21,12 +21,15 @@
   <div id="labels"></div>
 </div>
 
-<header id="topbar">
-  <div class="brand">
+<!-- The window hides its native title bar, so the top bar has to be the drag
+     handle. Tauri only drags when the event target itself carries the
+     attribute, so controls below stay clickable. -->
+<header id="topbar" data-tauri-drag-region>
+  <div class="brand" data-tauri-drag-region>
     <span class="mark"></span>
-    <span class="name">System Design Visualizer</span>
+    <span class="name" data-tauri-drag-region>System Design Visualizer</span>
   </div>
-  <div class="spacer"></div>
+  <div class="spacer" data-tauri-drag-region></div>
   <label class="field">
     <span>Design</span>
     <select id="design-picker"></select>
