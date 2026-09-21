@@ -26,7 +26,7 @@ const SKILL_MD: &str = include_str!("../../skill/system-design-visualizer/SKILL.
 
 /// Bumped when the skill's content changes meaningfully. Shown in the UI so a
 /// user can tell an old install from a current one.
-const SKILL_VERSION: u32 = 2;
+const SKILL_VERSION: u32 = 3;
 
 const SKILL_DIR_NAME: &str = "system-design-visualizer";
 const MARKER_FILE: &str = ".managed-by-sdv.json";

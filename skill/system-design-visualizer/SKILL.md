@@ -16,9 +16,10 @@ fields you write here.
 ```
 
 That path is fixed and global. Write there from any repo, on any machine, and
-the design appears under **Your designs** in the app's picker the next time it
-starts. There is no manifest to update — the app scans the folder — and no need
-to know where the visualizer itself is installed.
+the design appears under **Your designs** in the app's picker — the app re-scans
+the folder whenever its window regains focus, so a design written while it is
+open shows up as soon as the user clicks back into it. There is no manifest to
+update, and no need to know where the visualizer itself is installed.
 
 Create the directory if it is missing (`mkdir -p`). Two exceptions: if the user
 names a path, use it; if you are working inside the visualizer repo itself and
@@ -93,13 +94,46 @@ short strings; `label` floats on the connection, so keep it under ~20 characters
 `path` is a list of node ids, each consecutive pair ideally matching a declared
 edge (a missing edge still renders, as a straight line, with a warning).
 
-`steps` runs **parallel to `path`** — one entry per node, describing what happens
+`steps` runs **parallel to `path`** — one entry per step, describing what happens
 there, so `steps.length === path.length`. The first step is announced before the
-particles move; each later one appears as they arrive at that node.
+particles move; each later one appears as they arrive.
 
 Write steps as narration, present tense, one idea each. They are read at about
 one per second while the camera flies to the node, so a step is a sentence, not a
 paragraph.
+
+#### Fanning out
+
+The **last** element of `path` may be an array. Every node in it is reached at
+once, on its own particle trail, and they all light up together:
+
+```json
+{ "id": "scatter", "label": "Ask every team", "path": ["browser", "zeus", "leader", ["ws-default", "ws-search", "ws-edge"]],
+  "steps": ["Request lands", "Zeus routes it", "Leader fans out", "All three teams answer in parallel"] }
+```
+
+Use it whenever the truth is *simultaneously*. Three sequential flows say the
+opposite of what a scatter-gather means, and a reader watching them one after
+another will take away the wrong latency.
+
+Only the last step may fan out — there is no way to express branches re-joining,
+and a group anywhere else is a validation error, not a warning. A parallel group
+counts as **one** entry for `steps`, so the example above has four steps for four
+path elements. Its one step describes the whole fan-out.
+
+#### Colour, speed, and return legs
+
+| Field | Notes |
+| --- | --- |
+| `color` | any CSS colour for this flow's particles; also drawn as a swatch beside its name in the sidebar |
+| `speed` | 0.1–10, multiplied on top of the user's speed slider — 0.4 for a path whose point is that it is slow |
+| `returns` | `true` walks the path back to the origin after arriving, for a request whose response is the interesting half |
+
+`color` earns its place when two flows contrast — green for the optimized path,
+yellow for the degraded one — because the reader can then tell at a glance which
+trail they are watching. Colouring all five flows differently just for variety
+teaches nothing. `returns` and a parallel group are contradictory; declaring both
+drops the return leg with a warning.
 
 Three to five flows. Good sets contrast rather than repeat:
 
@@ -107,6 +141,7 @@ Three to five flows. Good sets contrast rather than repeat:
 - the same request when it misses — make the extra cost visible
 - the write path
 - the asynchronous path that was deliberately kept off the critical path
+- the one that fans out, if the design has a scatter-gather in it
 
 ## Process
 
@@ -129,8 +164,12 @@ node tools/validate.mjs path/to/design.json
 
 ## Checks before you hand it over
 
-- Every `flows[].path` id exists, and consecutive pairs have edges.
-- `steps` has exactly `path.length` entries — one per node, origin included.
+- Every `flows[].path` id exists, and consecutive pairs have edges — including
+  every branch of a trailing parallel group.
+- `steps` has exactly `path.length` entries — origin included, a parallel group
+  counting as one.
+- Anything that happens simultaneously is written as a parallel group, not as
+  separate flows played one after another.
 - The hot path has the thickest `volume` values in the file.
 - Every node either carries a `notes` string or is genuinely self-explanatory.
 - At least two flows, and at least one that is *not* the happy path.
