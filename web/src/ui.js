@@ -49,11 +49,28 @@ export function renderFlowList(design, onSelect) {
 
     const label = document.createElement('span');
     label.className = 'fl-label';
-    label.textContent = flow.label;
+
+    // When a design colour-codes its flows, the swatch is how you tell which
+    // trail you are watching once two of them have been played back to back.
+    if (flow.color) {
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      Object.assign(swatch.style, {
+        display: 'inline-block',
+        width: '8px',
+        height: '8px',
+        borderRadius: '2px',
+        marginRight: '6px',
+        background: flow.color,
+      });
+      label.append(swatch);
+    }
+
+    label.append(flow.label);
 
     const sub = document.createElement('span');
     sub.className = 'fl-sub';
-    sub.textContent = flow.notes || `${flow.path.length} hops`;
+    sub.textContent = flow.notes || `${flow.flatPath.length} hops`;
 
     button.append(label, sub);
     button.addEventListener('click', () => onSelect(flow));
@@ -200,8 +217,23 @@ export function renderLayerList(design, onToggle) {
   });
 }
 
+/**
+ * Wire the picker once, then fill it. The design library can change while the
+ * app is open, so the option list is re-rendered on its own — re-attaching the
+ * change listener each time would stack duplicate handlers.
+ */
 export function renderDesignPicker(manifest, onPick) {
   const picker = $('design-picker');
+  if (!picker._wired) {
+    picker._wired = true;
+    picker.addEventListener('change', () => onPick(picker.value));
+  }
+  updatePickerOptions(manifest);
+}
+
+export function updatePickerOptions(manifest) {
+  const picker = $('design-picker');
+  const selected = picker.value;
   picker.replaceChildren();
 
   // Keep the user's own designs visually separate from the shipped examples;
@@ -226,7 +258,8 @@ export function renderDesignPicker(manifest, onPick) {
     if (parent !== picker) picker.append(parent);
   }
 
-  picker.addEventListener('change', () => onPick(picker.value));
+  // Re-rendering must not look like the user picked something else.
+  if ([...picker.options].some((o) => o.value === selected)) picker.value = selected;
 }
 
 export function setPickerValue(file) {

@@ -411,8 +411,11 @@ const bundled = await loadManifest();
 const library = await listUserDesigns();
 const manifest = [...library, ...bundled];
 
+// Wire the picker even when it is empty: the focus re-scan below can fill it
+// later, and it needs the change listener already in place.
+ui.renderDesignPicker(manifest, loadDesignFile);
+
 if (manifest.length) {
-  ui.renderDesignPicker(manifest, loadDesignFile);
   await loadDesignFile(manifest[0].file);
 } else {
   const where = (await designsDir()) ?? 'designs/';
@@ -421,3 +424,17 @@ if (manifest.length) {
     []
   );
 }
+
+// An agent writing a new design while the app is open is the normal case, not
+// the exception, so re-scan the library whenever the window comes back to the
+// front. Nothing is loaded — only the picker grows.
+let rescanning = false;
+window.addEventListener('focus', async () => {
+  if (rescanning || !isDesktop()) return;
+  rescanning = true;
+  try {
+    ui.updatePickerOptions([...(await listUserDesigns()), ...bundled]);
+  } finally {
+    rescanning = false;
+  }
+});
