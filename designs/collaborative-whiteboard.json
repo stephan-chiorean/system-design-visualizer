@@ -1,0 +1,142 @@
+{
+  "version": "1.0",
+  "title": "Collaborative Whiteboard",
+  "summary": "Many users editing one shared canvas. The hard part is not drawing — it is that every client holds an optimistic copy of state that must converge, survive disconnects, and reload from durable storage later.",
+  "layers": [
+    { "id": "client", "label": "Clients" },
+    { "id": "edge", "label": "Edge" },
+    { "id": "realtime", "label": "Realtime" },
+    { "id": "state", "label": "State" },
+    { "id": "durable", "label": "Durable" }
+  ],
+  "nodes": [
+    {
+      "id": "editor",
+      "kind": "client",
+      "label": "Editor",
+      "layer": "client",
+      "replicas": 3,
+      "notes": "Applies every local edit optimistically and renders it before the server has seen it. Waiting for a round trip to draw a stroke would feel broken."
+    },
+    {
+      "id": "ws-gw",
+      "kind": "gateway",
+      "label": "WebSocket Gateway",
+      "layer": "edge",
+      "replicas": 3,
+      "notes": "Holds the long-lived connections and terminates TLS. Sticky by board, so everyone editing the same board lands on the same session server."
+    },
+    {
+      "id": "session",
+      "kind": "service",
+      "label": "Board Session",
+      "layer": "realtime",
+      "replicas": 3,
+      "notes": "One authoritative process per active board. Serializes incoming ops, assigns each a sequence number, and fans the result out to every subscriber. Being single-writer per board is what makes convergence tractable.",
+      "metrics": { "p99_ms": 40 }
+    },
+    {
+      "id": "presence",
+      "kind": "service",
+      "label": "Presence",
+      "layer": "realtime",
+      "notes": "Cursors, selections, who is here. High frequency, zero durability — it is correct to drop presence updates under load, and wrong to drop edits."
+    },
+    {
+      "id": "pubsub",
+      "kind": "queue",
+      "label": "Fan-out Bus",
+      "layer": "realtime",
+      "tech": "Redis Pub/Sub",
+      "notes": "Carries ops between gateway instances when a board's subscribers are spread across more than one machine."
+    },
+    {
+      "id": "opcache",
+      "kind": "cache",
+      "label": "Op Log (hot)",
+      "layer": "state",
+      "tech": "Redis",
+      "notes": "The recent tail of the operation log. A client that drops for ten seconds replays from its last sequence number instead of refetching the whole board."
+    },
+    {
+      "id": "boarddb",
+      "kind": "db",
+      "label": "Board Store",
+      "layer": "state",
+      "replicas": 2,
+      "tech": "Postgres",
+      "notes": "Board metadata, membership, permissions, and the pointer to the latest snapshot."
+    },
+    {
+      "id": "snapshotter",
+      "kind": "worker",
+      "label": "Snapshotter",
+      "layer": "durable",
+      "notes": "Periodically folds the op log into a single materialized board state. Without it, opening an old board means replaying every op ever applied to it."
+    },
+    {
+      "id": "blob",
+      "kind": "blob",
+      "label": "Snapshots + Assets",
+      "layer": "durable",
+      "tech": "S3",
+      "notes": "Board snapshots plus uploaded images and files. Load = fetch the newest snapshot, then replay the ops recorded after it."
+    }
+  ],
+  "edges": [
+    { "from": "editor", "to": "ws-gw", "kind": "stream", "protocol": "WebSocket", "label": "ops + presence", "volume": 1.0, "bidirectional": true,
+      "notes": "One duplex connection carries local edits up and remote edits down. Reconnect resumes from the last acknowledged sequence number." },
+    { "from": "ws-gw", "to": "session", "kind": "sync", "volume": 0.9 },
+    { "from": "ws-gw", "to": "presence", "kind": "stream", "volume": 0.8 },
+    { "from": "session", "to": "opcache", "kind": "sync", "label": "append op", "volume": 0.9,
+      "notes": "The op is durable enough to acknowledge once it is in the hot log; the snapshot catches up later." },
+    { "from": "session", "to": "pubsub", "kind": "stream", "label": "broadcast", "volume": 0.9 },
+    { "from": "pubsub", "to": "ws-gw", "kind": "stream", "volume": 0.9 },
+    { "from": "session", "to": "boarddb", "kind": "sync", "label": "metadata", "volume": 0.1 },
+    { "from": "opcache", "to": "snapshotter", "kind": "batch", "label": "drain ops", "volume": 0.3 },
+    { "from": "snapshotter", "to": "blob", "kind": "batch", "label": "write snapshot", "volume": 0.3 },
+    { "from": "snapshotter", "to": "boarddb", "kind": "sync", "label": "snapshot pointer", "volume": 0.1 },
+    { "from": "editor", "to": "blob", "kind": "sync", "protocol": "HTTPS", "label": "asset upload", "volume": 0.2,
+      "notes": "Images go straight to object storage with a presigned URL; only the reference travels through the realtime path." }
+  ],
+  "flows": [
+    {
+      "id": "edit",
+      "label": "Apply a remote edit",
+      "notes": "The loop everything else exists to serve",
+      "path": ["editor", "ws-gw", "session", "pubsub", "ws-gw"],
+      "steps": [
+        "A local edit is drawn immediately and sent up with a client sequence number.",
+        "The gateway forwards it to the board's authoritative session.",
+        "The session serializes it, assigns a global sequence number, and appends.",
+        "Fan-out to every gateway holding a subscriber for this board.",
+        "Each peer applies the op and reconciles against its optimistic copy."
+      ]
+    },
+    {
+      "id": "reconnect",
+      "label": "Reconnect after a drop",
+      "notes": "Catch up without a full reload",
+      "path": ["editor", "ws-gw", "session", "opcache"],
+      "steps": [
+        "The client reopens the socket, offering its last acknowledged sequence number.",
+        "The gateway routes it back to the board's session.",
+        "The session asks the hot log for everything after that sequence.",
+        "Ops replay in order and the client is live again — no snapshot fetch needed."
+      ]
+    },
+    {
+      "id": "snapshot",
+      "label": "Snapshot the board",
+      "notes": "Bounding replay cost",
+      "path": ["opcache", "snapshotter", "blob", "snapshotter", "boarddb"],
+      "steps": [
+        "Ops have accumulated in the hot log since the last snapshot.",
+        "The snapshotter drains them and folds them into one board state.",
+        "That materialized state is written to object storage.",
+        "With the write durable, the snapshotter can record it.",
+        "The pointer flips, and older ops become safe to trim."
+      ]
+    }
+  ]
+}

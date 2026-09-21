@@ -1,0 +1,189 @@
+{
+  "version": "1.0",
+  "title": "URL Shortener",
+  "summary": "A managed redirect service. The slug is a stable identifier that routes every click through our system once, so the redirect can be measured and controlled — which is why analytics sits off the critical path.",
+  "layers": [
+    { "id": "client", "label": "Clients" },
+    { "id": "edge", "label": "Edge" },
+    { "id": "app", "label": "Application" },
+    { "id": "state", "label": "State" },
+    { "id": "async", "label": "Asynchronous" }
+  ],
+  "nodes": [
+    {
+      "id": "browser",
+      "kind": "client",
+      "label": "Click",
+      "layer": "client",
+      "notes": "Someone follows ourdomain.com/aB7kQ2 from SMS, a post, or a QR code. This request is latency-critical: the user is staring at a blank tab until it resolves."
+    },
+    {
+      "id": "admin-ui",
+      "kind": "client",
+      "label": "Admin / API caller",
+      "layer": "client",
+      "notes": "Marketers, product teams, and internal services creating and managing links. Low volume, high privilege — the opposite profile to the redirect path."
+    },
+    {
+      "id": "cdn",
+      "kind": "cdn",
+      "label": "CDN",
+      "layer": "edge",
+      "tech": "CloudFront",
+      "notes": "Terminates TLS at the edge and absorbs repeat traffic on hot slugs. A cached 301 never reaches our origin at all — the cheapest redirect is the one we don't serve.",
+      "metrics": { "hit_rate": "~70%", "p99_ms": 12 }
+    },
+    {
+      "id": "lb",
+      "kind": "lb",
+      "label": "Load balancer",
+      "layer": "edge",
+      "notes": "Spreads origin traffic across redirect service instances and sheds load when a region degrades."
+    },
+    {
+      "id": "redirect",
+      "kind": "service",
+      "label": "Redirect Service",
+      "layer": "app",
+      "replicas": 4,
+      "tech": "stateless",
+      "notes": "The critical path, and deliberately the dumbest service here: resolve slug, check status and expiry, emit one event, return 301/302. Anything else belongs off this path.",
+      "metrics": { "rps": 50000, "p99_ms": 25 }
+    },
+    {
+      "id": "linksvc",
+      "kind": "service",
+      "label": "Link Service",
+      "layer": "app",
+      "replicas": 2,
+      "notes": "Create, update, disable, and expire links. Writes are rare relative to reads, so this scales independently from the redirect path."
+    },
+    {
+      "id": "keygen",
+      "kind": "service",
+      "label": "Key Generation",
+      "layer": "app",
+      "notes": "Hands out unique slugs from a pre-allocated range so link creation never needs a collision-retry loop against the database."
+    },
+    {
+      "id": "cache",
+      "kind": "cache",
+      "label": "Redirect Cache",
+      "layer": "state",
+      "tech": "Redis",
+      "notes": "Slug → destination, with a TTL. Lazy expiry on read plus active sampling in the background. The hit rate here is what keeps the database small enough to be boring.",
+      "metrics": { "hit_rate": "~95%", "p99_ms": 2 }
+    },
+    {
+      "id": "linkdb",
+      "kind": "db",
+      "label": "Link Store",
+      "layer": "state",
+      "replicas": 3,
+      "tech": "DynamoDB",
+      "notes": "Source of truth for the redirect object: destination, owner, campaign, status, expiry. Keyed by slug, so reads are a single partition lookup — no scan, no join.",
+      "metrics": { "p99_ms": 9 }
+    },
+    {
+      "id": "queue",
+      "kind": "queue",
+      "label": "Click Event Queue",
+      "layer": "async",
+      "tech": "SQS",
+      "notes": "The seam that keeps redirect latency independent of analytics latency. Start with a durable queue and a dead-letter queue; move to Kafka only when raw click history needs broad replay.",
+      "metrics": { "lag_s": "<5" }
+    },
+    {
+      "id": "workers",
+      "kind": "worker",
+      "label": "Analytics Workers",
+      "layer": "async",
+      "replicas": 3,
+      "notes": "Enrich click events with referrer, coarse geography, and device, then aggregate. Scales on queue depth, entirely separately from the redirect fleet."
+    },
+    {
+      "id": "analytics",
+      "kind": "analytics",
+      "label": "Analytics Store",
+      "layer": "async",
+      "notes": "Clicks over time by campaign, referrer, geography, device. Read by dashboards, never by the redirect path."
+    }
+  ],
+  "edges": [
+    { "from": "browser", "to": "cdn", "kind": "sync", "protocol": "HTTPS", "label": "GET /aB7kQ2", "volume": 1.0,
+      "notes": "The whole product, from the user's point of view: one GET that should end in a redirect within a few tens of milliseconds." },
+    { "from": "cdn", "to": "lb", "kind": "sync", "protocol": "HTTPS", "label": "cache miss", "volume": 0.3,
+      "notes": "Only misses reach the origin. Cacheability is a design decision: 301s cache hard, 302s let us change the destination later." },
+    { "from": "lb", "to": "redirect", "kind": "sync", "protocol": "HTTP", "volume": 0.3 },
+    { "from": "redirect", "to": "cache", "kind": "sync", "protocol": "RESP", "label": "GET slug", "volume": 0.3,
+      "notes": "First stop on every resolve. A hit here ends the lookup." },
+    { "from": "redirect", "to": "linkdb", "kind": "sync", "protocol": "HTTPS", "label": "cache miss", "volume": 0.05,
+      "notes": "Read-through on a miss, then populate the cache with a TTL." },
+    { "from": "redirect", "to": "queue", "kind": "async", "protocol": "HTTPS", "label": "click event", "volume": 0.9,
+      "notes": "Fire-and-forget. If this publish fails we still serve the redirect — losing a click event is cheaper than adding latency to every click." },
+    { "from": "queue", "to": "workers", "kind": "async", "volume": 0.9 },
+    { "from": "workers", "to": "analytics", "kind": "batch", "label": "aggregates", "volume": 0.6 },
+    { "from": "admin-ui", "to": "lb", "kind": "sync", "protocol": "HTTPS", "label": "POST /links", "volume": 0.05 },
+    { "from": "lb", "to": "linksvc", "kind": "sync", "volume": 0.05 },
+    { "from": "linksvc", "to": "keygen", "kind": "sync", "label": "next slug", "volume": 0.05 },
+    { "from": "linksvc", "to": "linkdb", "kind": "sync", "label": "put link", "volume": 0.05 },
+    { "from": "linksvc", "to": "cache", "kind": "sync", "label": "invalidate", "volume": 0.05,
+      "notes": "Destination changes have to invalidate, or a stale cache keeps sending traffic to the old target long after the campaign moved." }
+  ],
+  "flows": [
+    {
+      "id": "redirect-hit",
+      "label": "Resolve a link (cache hit)",
+      "notes": "The path that has to be fast",
+      "path": ["browser", "cdn", "lb", "redirect", "cache"],
+      "steps": [
+        "Someone follows a short link. The clock starts here.",
+        "TLS terminates at the edge; the CDN checks for a cached redirect.",
+        "Miss at the edge, so the request goes to the origin load balancer.",
+        "Routed to any redirect instance — they hold no session state.",
+        "Redis answers slug → destination in about 2ms. Return 301 and we're done."
+      ]
+    },
+    {
+      "id": "redirect-miss",
+      "label": "Resolve a link (cold slug)",
+      "notes": "What a cache miss actually costs",
+      "path": ["browser", "cdn", "lb", "redirect", "linkdb", "redirect", "cache"],
+      "steps": [
+        "A click on a slug nobody has touched recently.",
+        "Edge miss — nothing cached for this one.",
+        "Origin load balancer picks an instance.",
+        "Cache miss too. This is the expensive case, and the one to design for.",
+        "Single-partition read by slug: destination, status, expiry.",
+        "The redirect is answered, several milliseconds slower than a hit.",
+        "Populate the cache with a TTL so the next click takes the fast path."
+      ]
+    },
+    {
+      "id": "analytics",
+      "label": "Record a click",
+      "notes": "Deliberately off the critical path",
+      "path": ["redirect", "queue", "workers", "analytics"],
+      "steps": [
+        "The redirect service publishes one small event and returns immediately.",
+        "The queue absorbs the burst and retries failures into a dead-letter queue.",
+        "Workers enrich with referrer, geography, and device, then aggregate.",
+        "Results land where dashboards read them — seconds behind, which is fine."
+      ]
+    },
+    {
+      "id": "create",
+      "label": "Create a short link",
+      "notes": "The low-volume, high-privilege path",
+      "path": ["admin-ui", "lb", "linksvc", "keygen", "linksvc", "linkdb"],
+      "steps": [
+        "An authenticated caller posts a destination URL and campaign metadata.",
+        "Through the same load balancer, but a completely different traffic profile.",
+        "The link service handles it — scaled separately from the redirect fleet.",
+        "Key generation hands back a unique slug from a pre-allocated range.",
+        "No collision retry loop was needed, so the write can proceed directly.",
+        "The redirect object is written as the new source of truth."
+      ]
+    }
+  ]
+}

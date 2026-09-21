@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>System Design Visualizer</title>
+<link rel="stylesheet" href="src/style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="canvas"></canvas>
+  <div id="labels"></div>
+</div>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="mark"></span>
+    <span class="name">System Design Visualizer</span>
+  </div>
+  <div class="spacer"></div>
+  <label class="field">
+    <span>Design</span>
+    <select id="design-picker"></select>
+  </label>
+  <button id="btn-open" class="ghost" title="Open a design JSON from disk">Open JSON…</button>
+  <input type="file" id="file-input" accept="application/json,.json" hidden />
+</header>
+
+<aside id="sidebar">
+  <section class="panel" id="panel-design">
+    <h1 id="design-title">—</h1>
+    <p id="design-summary" class="muted"></p>
+    <dl class="meta" id="design-meta"></dl>
+  </section>
+
+  <section class="panel" id="panel-flows">
+    <h2>Flows</h2>
+    <p class="muted hint">Play a request path through the stack.</p>
+    <div id="flow-list" class="flow-list"></div>
+    <div id="flow-transport" class="transport" hidden>
+      <div class="transport-row">
+        <button id="btn-play" class="primary">Pause</button>
+        <button id="btn-restart" class="ghost">Restart</button>
+        <button id="btn-stop" class="ghost">Stop</button>
+      </div>
+      <label class="slider">
+        <span>Speed</span>
+        <input type="range" id="speed" min="0.25" max="3" step="0.25" value="1" />
+        <output id="speed-out">1×</output>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="follow" checked />
+        <span>Camera follows the request</span>
+      </label>
+      <div id="hop-readout" class="hop"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-inspect">
+    <h2>Inspector</h2>
+    <div id="inspector" class="inspector">
+      <p class="muted">Hover or click a node or connection.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-layers">
+    <h2>Layers</h2>
+    <div id="layer-list" class="layer-list"></div>
+    <div class="transport-row" style="margin-top:10px">
+      <button id="btn-reset-view" class="ghost">Reset view</button>
+    </div>
+  </section>
+</aside>
+
+<div id="drop-hint" class="drop-hint" hidden>
+  <div class="drop-card">Drop a design JSON to render it</div>
+</div>
+
+<div id="errors" class="errors" hidden></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
