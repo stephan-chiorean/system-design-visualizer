@@ -9,9 +9,21 @@ You are the author. The app is only a renderer: it draws what this JSON says and
 knows nothing else about the system. Everything a reader will learn comes from
 fields you write here.
 
-Write the file as `<slug>.json` into the visualizer's `designs/` folder, then add
-a row to `designs/index.json`. If the user is working somewhere else, write it
-wherever they ask and tell them they can drop the file onto the visualizer window.
+## Where to write it
+
+Designs live in the visualizer repo at `web/designs/`, alongside a manifest at
+`web/designs/index.json` that the app's picker reads.
+
+You are usually **not** in that repo. Resolve it in this order, and do not guess:
+
+1. The user names a path — use it.
+2. You are inside the visualizer repo (there is a `web/designs/` here) — use it.
+3. Otherwise **ask once** where the visualizer lives, or write the file to the
+   current directory and tell the user to drag it onto the visualizer window.
+
+Dragging a file onto the window renders it immediately and needs no manifest
+row, so option 3 is a real answer, not a fallback apology. A design only needs
+to live in `web/designs/` if it should persist in the dropdown.
 
 ## The one thing that matters
 
@@ -78,9 +90,9 @@ short strings; `label` floats on the connection, so keep it under ~20 characters
 `path` is a list of node ids, each consecutive pair ideally matching a declared
 edge (a missing edge still renders, as a straight line, with a warning).
 
-`steps[i]` describes the hop **arriving at** `path[i+1]`, so there is one fewer
-step than there are nodes. Each step shows in the sidebar as the particles reach
-that hop.
+`steps` runs **parallel to `path`** — one entry per node, describing what happens
+there, so `steps.length === path.length`. The first step is announced before the
+particles move; each later one appears as they arrive at that node.
 
 Write steps as narration, present tense, one idea each. They are read at about
 one per second while the camera flies to the node, so a step is a sentence, not a
@@ -100,12 +112,22 @@ Three to five flows. Good sets contrast rather than repeat:
 3. Draw edges, setting `volume` honestly — the thickness is information.
 4. Write flows last, because they tell you which edges you forgot.
 5. Write `notes` on everything load-bearing. Skip it on the obvious.
-6. Save, add the `designs/index.json` row, and tell the user which flow to play first.
+6. Save. If you wrote into `web/designs/`, add the `index.json` row so it shows
+   in the picker. Then tell the user which flow to play first.
+
+## Verify
+
+If the visualizer repo is available, run its validator — it catches the mistakes
+that are tedious to diagnose in a browser:
+
+```bash
+node tools/validate.mjs path/to/design.json
+```
 
 ## Checks before you hand it over
 
 - Every `flows[].path` id exists, and consecutive pairs have edges.
-- `steps` has exactly `path.length - 1` entries.
+- `steps` has exactly `path.length` entries — one per node, origin included.
 - The hot path has the thickest `volume` values in the file.
 - Every node either carries a `notes` string or is genuinely self-explanatory.
 - At least two flows, and at least one that is *not* the happy path.
