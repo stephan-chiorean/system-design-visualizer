@@ -38,6 +38,20 @@ unless you explicitly choose to. Remove only deletes what the app installed.
 The browser build cannot do this: a page has no filesystem access. Copy the
 skill by hand, or use the desktop app.
 
+## Where designs live
+
+```
+~/.system-design-visualizer/designs/
+```
+
+One fixed, global folder. Anything saved there shows under **Your designs** in
+the picker — no manifest row, no need to know where the app is installed. That
+is what makes the authoring skill usable from any repo: it always knows where
+to write.
+
+The bundled examples stay in `web/designs/` and appear under **Examples**. The
+browser build only sees those, since a page has no filesystem access.
+
 ## Use it
 
 - **Design** picker loads anything listed in `web/designs/index.json`.

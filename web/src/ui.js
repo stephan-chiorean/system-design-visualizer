@@ -203,12 +203,29 @@ export function renderLayerList(design, onToggle) {
 export function renderDesignPicker(manifest, onPick) {
   const picker = $('design-picker');
   picker.replaceChildren();
-  for (const item of manifest) {
-    const option = document.createElement('option');
-    option.value = item.file;
-    option.textContent = item.title;
-    picker.append(option);
+
+  // Keep the user's own designs visually separate from the shipped examples;
+  // an unlabelled mix of the two is hard to read once the library grows.
+  const groups = [
+    ['Your designs', manifest.filter((m) => m.external)],
+    ['Examples', manifest.filter((m) => !m.external)],
+  ];
+
+  for (const [label, items] of groups) {
+    if (items.length === 0) continue;
+    const parent =
+      groups.filter(([, list]) => list.length).length > 1
+        ? Object.assign(document.createElement('optgroup'), { label })
+        : picker;
+    for (const item of items) {
+      const option = document.createElement('option');
+      option.value = item.file;
+      option.textContent = item.title;
+      parent.append(option);
+    }
+    if (parent !== picker) picker.append(parent);
   }
+
   picker.addEventListener('change', () => onPick(picker.value));
 }
 

@@ -5,8 +5,10 @@
 //! into the user's agent directories, and open design files from anywhere on
 //! disk rather than only from the bundled `designs/` folder.
 
+mod designs;
 mod skill_install;
 
+use designs::UserDesign;
 use skill_install::SkillStatus;
 
 #[tauri::command]
@@ -38,6 +40,27 @@ fn read_design_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("could not read {path}: {e}"))
 }
 
+/// The user's design library — everything the skill has written, from any repo.
+#[tauri::command]
+fn list_user_designs() -> Vec<UserDesign> {
+    designs::list()
+}
+
+/// Absolute path of the library, shown in the UI and used by the skill.
+#[tauri::command]
+fn designs_dir() -> String {
+    designs::designs_dir().to_string_lossy().to_string()
+}
+
+#[tauri::command]
+fn open_designs_dir(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = designs::ensure_dir()?;
+    app.opener()
+        .open_path(dir.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| format!("could not open the designs folder: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -48,8 +71,17 @@ pub fn run() {
             install_skill,
             remove_skill,
             skill_markdown,
-            read_design_file
+            read_design_file,
+            list_user_designs,
+            designs_dir,
+            open_designs_dir
         ])
+        .setup(|_app| {
+            // Create the library up front so the skill can assume it exists and
+            // the user can find it before saving anything there.
+            let _ = designs::ensure_dir();
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running the System Design Visualizer");
 }

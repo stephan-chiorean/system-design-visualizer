@@ -11,19 +11,22 @@ fields you write here.
 
 ## Where to write it
 
-Designs live in the visualizer repo at `web/designs/`, alongside a manifest at
-`web/designs/index.json` that the app's picker reads.
+```
+~/.system-design-visualizer/designs/<slug>.json
+```
 
-You are usually **not** in that repo. Resolve it in this order, and do not guess:
+That path is fixed and global. Write there from any repo, on any machine, and
+the design appears under **Your designs** in the app's picker the next time it
+starts. There is no manifest to update — the app scans the folder — and no need
+to know where the visualizer itself is installed.
 
-1. The user names a path — use it.
-2. You are inside the visualizer repo (there is a `web/designs/` here) — use it.
-3. Otherwise **ask once** where the visualizer lives, or write the file to the
-   current directory and tell the user to drag it onto the visualizer window.
+Create the directory if it is missing (`mkdir -p`). Two exceptions: if the user
+names a path, use it; if you are working inside the visualizer repo itself and
+the design is meant to ship as an example, `web/designs/` plus an `index.json`
+row is the right home.
 
-Dragging a file onto the window renders it immediately and needs no manifest
-row, so option 3 is a real answer, not a fallback apology. A design only needs
-to live in `web/designs/` if it should persist in the dropdown.
+A design saved anywhere else still works — the user can drag the file onto the
+window — but it will not be in the picker.
 
 ## The one thing that matters
 

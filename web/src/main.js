@@ -18,7 +18,14 @@ import { buildEdges } from './scene/edges.js';
 import { buildStage, addLighting } from './scene/stage.js';
 import { FlowPlayer } from './flows.js';
 import * as ui from './ui.js';
-import { isDesktop, initSkillPanel, initNativeOpen } from './desktop.js';
+import {
+  isDesktop,
+  initSkillPanel,
+  initNativeOpen,
+  listUserDesigns,
+  readDesignPath,
+  designsDir,
+} from './desktop.js';
 
 const canvas = document.getElementById('canvas');
 
@@ -62,14 +69,24 @@ async function loadManifest() {
   }
 }
 
+/**
+ * Load a design by picker value. A bundled design is a name relative to
+ * `designs/`; a library design is an absolute path, which only the desktop
+ * shell can read. Both end up in `applyRaw`.
+ */
 async function loadDesignFile(file) {
-  const response = await fetch(`designs/${file}`);
-  if (!response.ok) {
-    ui.showDiagnostics([`Could not load designs/${file} (HTTP ${response.status}).`], []);
-    return;
+  try {
+    if (file.startsWith('/')) {
+      applyRaw(JSON.parse(await readDesignPath(file)));
+    } else {
+      const response = await fetch(`designs/${file}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      applyRaw(await response.json());
+    }
+    ui.setPickerValue(file);
+  } catch (error) {
+    ui.showDiagnostics([`Could not load ${file}: ${error.message ?? error}`], []);
   }
-  applyRaw(await response.json());
-  ui.setPickerValue(file);
 }
 
 function applyRaw(raw) {
@@ -388,13 +405,19 @@ help.className = 'help';
 help.textContent = 'drag to orbit · scroll to zoom · 1–9 play a flow · space pause · R reset view';
 document.body.append(help);
 
-const manifest = await loadManifest();
+// The picker is the bundled examples plus the user's library. On the web the
+// library is always empty, so this is the same single list it always was.
+const bundled = await loadManifest();
+const library = await listUserDesigns();
+const manifest = [...library, ...bundled];
+
 if (manifest.length) {
   ui.renderDesignPicker(manifest, loadDesignFile);
   await loadDesignFile(manifest[0].file);
 } else {
+  const where = (await designsDir()) ?? 'designs/';
   ui.showDiagnostics(
-    ['No designs/index.json found. Serve this folder over HTTP, or drop a design JSON onto the window.'],
+    [`No designs found. Save one to ${where}, or drop a design JSON onto this window.`],
     []
   );
 }

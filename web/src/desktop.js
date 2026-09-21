@@ -126,6 +126,10 @@ export function initSkillPanel() {
     if (!status.can_install && !anyCustom && anyInstalled) {
       note.textContent = `Up to date (v${status.bundle_version}). Start a new agent session to use it.`;
     }
+
+    actions.append(
+      actionButton('Designs folder', 'ghost', () => invoke('open_designs_dir'))
+    );
   }
 
   function actionButton(label, className, onClick) {
@@ -143,6 +147,35 @@ export function initSkillPanel() {
       }
     });
     return el;
+  }
+}
+
+/**
+ * The user's design library: everything the skill has written, from any repo.
+ *
+ * Returned as picker entries shaped like the bundled manifest, so main.js can
+ * concatenate the two lists and stay unaware of where a design came from.
+ */
+export async function listUserDesigns() {
+  if (!isDesktop()) return [];
+  try {
+    const designs = await invoke('list_user_designs');
+    return designs.map((d) => ({ file: d.path, title: d.title, external: true }));
+  } catch {
+    return [];
+  }
+}
+
+export async function readDesignPath(path) {
+  return invoke('read_design_file', { path });
+}
+
+export async function designsDir() {
+  if (!isDesktop()) return null;
+  try {
+    return await invoke('designs_dir');
+  } catch {
+    return null;
   }
 }
 
