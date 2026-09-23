@@ -30,6 +30,18 @@
     <span class="name" data-tauri-drag-region>System Design Visualizer</span>
   </div>
   <div class="spacer" data-tauri-drag-region></div>
+
+  <!-- Two switches that change how the scene reads rather than what is in it.
+       They sit in the bar because they outlive any one design or flow. -->
+  <div class="segmented" id="view-mode" role="group" aria-label="View mode">
+    <button type="button" data-mode="explore" class="on" title="Show the whole design; dim what the flow does not touch">Explore</button>
+    <button type="button" data-mode="focus" title="Hide everything the flow does not touch">Focus</button>
+  </div>
+
+  <button id="btn-theme" class="ghost icon-btn" title="Theme" aria-label="Theme">
+    <span id="theme-glyph">◐</span>
+  </button>
+
   <label class="field">
     <span>Design</span>
     <select id="design-picker"></select>
@@ -84,6 +96,19 @@
     </div>
   </section>
 </aside>
+
+<!-- The step list lives over the scene rather than in the sidebar: it is read
+     while watching the request move, and the eye should not have to cross the
+     whole window between the two. -->
+<aside id="steps" class="steps" hidden>
+  <div class="steps-head">
+    <span class="steps-title" id="steps-title">Steps</span>
+    <button id="steps-toggle" class="steps-toggle" aria-expanded="true" aria-controls="steps-body" title="Hide the steps">Hide</button>
+  </div>
+  <ol id="steps-body" class="steps-body"></ol>
+</aside>
+
+<button id="steps-show" class="steps-show" hidden>Steps</button>
 
 <div id="drop-hint" class="drop-hint" hidden>
   <div class="drop-card">Drop a design JSON to render it</div>

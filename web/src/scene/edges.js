@@ -15,12 +15,14 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { edgeKindOf } from '../kinds.js';
+import { sceneTheme, tint } from '../theme.js';
 
 const NODE_RADIUS = 3.6;  // where a curve should stop short of a node's centre
 const DASHES = 16;
 
 export function buildEdges(design, layout, root) {
   const entries = new Map();
+  const theme = sceneTheme();
 
   for (const edge of design.edges) {
     const a = layout.positions.get(edge.from);
@@ -33,12 +35,13 @@ export function buildEdges(design, layout, root) {
       ? dashedTube(curve, radius)
       : new THREE.TubeGeometry(curve, 48, radius, 8, false);
 
+    const color = tint(new THREE.Color(spec.color), theme.edgeShift);
     const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(spec.color),
+      color,
       roughness: 0.6,
       metalness: 0.1,
       transparent: true,
-      opacity: 0.72,
+      opacity: theme.edgeOpacity,
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -47,11 +50,11 @@ export function buildEdges(design, layout, root) {
 
     // Direction is part of the meaning of an edge, so it gets an arrowhead
     // rather than relying on the reader to remember from/to ordering.
-    const head = arrowHead(curve, spec.color);
+    const head = arrowHead(curve, color);
     root.add(head);
     let tailHead = null;
     if (edge.bidirectional) {
-      tailHead = arrowHead(reverse(curve), spec.color);
+      tailHead = arrowHead(reverse(curve), color);
       root.add(tailHead);
     }
 
@@ -65,7 +68,7 @@ export function buildEdges(design, layout, root) {
       root.add(label);
     }
 
-    entries.set(edge.id, { edge, curve, mesh, material, head, tailHead, label, baseOpacity: 0.72 });
+    entries.set(edge.id, { edge, curve, mesh, material, head, tailHead, label, baseOpacity: theme.edgeOpacity });
   }
 
   return entries;

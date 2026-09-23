@@ -78,6 +78,116 @@ export function renderFlowList(design, onSelect) {
   }
 }
 
+/**
+ * The step list over the scene.
+ *
+ * Every step is rendered, not just the current one: a reader watching a request
+ * move wants to know how far through it is and what is coming, which a single
+ * live line cannot say. Contrast does the work instead — the current step is
+ * bright, the rest are dimmed but present, and hovering one brings it up to
+ * full strength so it can be read without losing your place.
+ */
+export function renderSteps(flow, design) {
+  const panel = $('steps');
+  const list = $('steps-body');
+  list.replaceChildren();
+
+  if (!flow) {
+    panel.hidden = true;
+    $('steps-show').hidden = true;
+    return;
+  }
+
+  $('steps-title').textContent = flow.label;
+
+  flow.path.forEach((entry, i) => {
+    const item = document.createElement('li');
+    item.className = 'step';
+    item.dataset.index = String(i);
+
+    // One wrapper, so the row is exactly two grid items: the number and this.
+    // Three items in a two-column grid wraps the text into the number column.
+    const body = document.createElement('div');
+    body.className = 'step-body';
+
+    const name = document.createElement('span');
+    name.className = 'step-node';
+    // A parallel group is one step reaching several nodes, so it is named as
+    // the list it is rather than as its first member.
+    name.textContent = [entry]
+      .flat()
+      .map((id) => design.nodeById.get(id)?.label ?? id)
+      .join(' · ');
+
+    const text = document.createElement('span');
+    text.className = 'step-text';
+    text.textContent = flow.steps[i] ?? '';
+
+    body.append(name, text);
+    item.append(body);
+    list.append(item);
+  });
+
+  const collapsed = panel.dataset.collapsed === 'true';
+  panel.hidden = collapsed;
+  $('steps-show').hidden = !collapsed;
+}
+
+export function markCurrentStep(index) {
+  for (const item of document.querySelectorAll('#steps-body .step')) {
+    item.classList.toggle('current', Number(item.dataset.index) === index);
+  }
+}
+
+/** Hide and restore the step list. The collapsed choice survives flow changes. */
+export function wireStepsPanel() {
+  const panel = $('steps');
+  const toggle = $('steps-toggle');
+  const show = $('steps-show');
+
+  const setCollapsed = (collapsed) => {
+    panel.dataset.collapsed = String(collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    // Only ever visible while a flow is playing, which is what having steps
+    // rendered stands for.
+    const hasFlow = $('steps-body').childElementCount > 0;
+    panel.hidden = collapsed || !hasFlow;
+    show.hidden = !collapsed || !hasFlow;
+  };
+
+  toggle.addEventListener('click', () => setCollapsed(true));
+  show.addEventListener('click', () => setCollapsed(false));
+  setCollapsed(false);
+}
+
+/** The Explore / Focus switch. */
+export function wireViewMode(onChange) {
+  for (const button of document.querySelectorAll('#view-mode button')) {
+    button.addEventListener('click', () => {
+      setViewMode(button.dataset.mode);
+      onChange(button.dataset.mode);
+    });
+  }
+}
+
+export function setViewMode(mode) {
+  for (const button of document.querySelectorAll('#view-mode button')) {
+    button.classList.toggle('on', button.dataset.mode === mode);
+  }
+}
+
+const THEME_GLYPH = { system: '◐', light: '☀', dark: '☾' };
+const THEME_TITLE = {
+  system: 'Theme: following the system',
+  light: 'Theme: light',
+  dark: 'Theme: dark',
+};
+
+export function setThemeGlyph(choice) {
+  $('theme-glyph').textContent = THEME_GLYPH[choice] ?? THEME_GLYPH.system;
+  $('btn-theme').title = THEME_TITLE[choice] ?? THEME_TITLE.system;
+}
+
 export function markActiveFlow(flowId) {
   for (const button of document.querySelectorAll('.flow-btn')) {
     button.classList.toggle('active', button.dataset.flowId === flowId);
@@ -186,7 +296,8 @@ function stat(name, value) {
   return el;
 }
 
-export function renderLayerList(design, onToggle) {
+/** `hidden` carries the user's unticked layers across a rebuild. */
+export function renderLayerList(design, onToggle, hidden = new Set()) {
   const list = $('layer-list');
   list.replaceChildren();
 
@@ -198,7 +309,7 @@ export function renderLayerList(design, onToggle) {
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = true;
+    checkbox.checked = !hidden.has(layer.id);
     checkbox.addEventListener('change', () => onToggle(layer.id, checkbox.checked));
 
     const swatch = document.createElement('span');
@@ -339,6 +450,7 @@ export function wireFileInput(onFile) {
 }
 
 export const controls = {
+  theme: $('btn-theme'),
   play: $('btn-play'),
   restart: $('btn-restart'),
   stop: $('btn-stop'),

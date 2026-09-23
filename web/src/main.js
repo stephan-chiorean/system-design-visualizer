@@ -15,9 +15,10 @@ import { parseDesign } from './schema.js';
 import { computeLayout } from './layout.js';
 import { buildNodes, setNodeGlow } from './scene/nodes.js';
 import { buildEdges } from './scene/edges.js';
-import { buildStage, addLighting } from './scene/stage.js';
+import { buildStage, addLighting, applyLighting } from './scene/stage.js';
 import { FlowPlayer } from './flows.js';
 import * as ui from './ui.js';
+import { initTheme, sceneTheme, cycleTheme, themeChoice, onThemeChange } from './theme.js';
 import {
   isDesktop,
   initSkillPanel,
@@ -29,15 +30,19 @@ import {
 
 const canvas = document.getElementById('canvas');
 
+// Before anything reads a colour: the scene palette and the stylesheet are two
+// halves of the same decision, and the renderer is built from the first.
+initTheme();
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setClearColor(0x080a0f, 1);
 
 const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x080a0f, 120, 340);
-addLighting(scene);
+scene.fog = new THREE.Fog(0x000000, 1, 2);
+const lights = addLighting(scene);
+applySceneTheme();
 
 const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 2000);
 const controls = new OrbitControls(camera, canvas);
@@ -52,6 +57,10 @@ scene.add(world);
 let current = null;   // { design, layout, nodes, edges, planes, player, home }
 let hovered = null;
 let pinned = null;    // a clicked subject survives the pointer leaving it
+
+// View state that outlives any one design.
+let viewMode = 'explore';           // or 'focus' — see FlowPlayer
+const hiddenLayers = new Set();     // layer ids the user has unticked
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -115,8 +124,13 @@ function build(design) {
     nodes,
     edges,
     root: world,
-    onHop: (hop) => ui.renderHop(hop),
+    onHop: (hop) => {
+      ui.renderHop(hop);
+      ui.markCurrentStep(hop ? hop.index : -1);
+    },
+    onVisibility: applyVisibility,
   });
+  player.setMode(viewMode);
 
   const home = frameCamera(layout);
   current = { design, layout, nodes, edges, planes, player, home };
@@ -124,10 +138,87 @@ function build(design) {
   ui.renderDesignPanel(design);
   ui.renderFlowList(design, selectFlow);
   ui.markActiveFlow(null);
-  ui.renderLayerList(design, toggleLayer);
+  ui.renderLayerList(design, toggleLayer, hiddenLayers);
   ui.renderInspector(null);
+  ui.renderSteps(null);
+  applyVisibility();
   pinned = null;
   hovered = null;
+}
+
+/**
+ * The one place that decides what is on screen.
+ *
+ * Two things want a say — the layer checkboxes and the flow's focus mode — and
+ * letting each set `visible` directly means whichever ran last wins. Combining
+ * them here means neither can undo the other.
+ */
+function applyVisibility() {
+  if (!current) return;
+  const { nodes, edges, planes, player } = current;
+  const focus = player.focusSets;
+
+  for (const [layerId, plane] of planes) {
+    plane.group.visible = !hiddenLayers.has(layerId);
+  }
+
+  for (const [id, entry] of nodes) {
+    entry.group.visible =
+      !hiddenLayers.has(entry.node.layer) && (focus === null || focus.nodes.has(id));
+  }
+
+  for (const [id, entry] of edges) {
+    const endsShown =
+      nodes.get(entry.edge.from).group.visible && nodes.get(entry.edge.to).group.visible;
+    const visible = endsShown && (focus === null || focus.edges.has(id));
+    entry.mesh.visible = visible;
+    entry.head.visible = visible;
+    if (entry.tailHead) entry.tailHead.visible = visible;
+    if (entry.label) entry.label.visible = visible;
+  }
+}
+
+/** Push the current theme into everything three.js owns. */
+function applySceneTheme() {
+  const theme = sceneTheme();
+  renderer.setClearColor(theme.background, 1);
+  scene.fog.color.set(theme.fog.color);
+  scene.fog.near = theme.fog.near;
+  scene.fog.far = theme.fog.far;
+  applyLighting(lights);
+}
+
+/**
+ * Node and edge materials are tinted for the theme when they are built, so a
+ * theme change rebuilds the design rather than reaching into every material.
+ * The rebuild is milliseconds; what has to survive it is the view the user had
+ * set up, so camera, layer toggles and the playing flow are all restored.
+ */
+function retheme() {
+  applySceneTheme();
+  ui.setThemeGlyph(themeChoice());
+  if (!current) return;
+
+  const { design, player } = current;
+  const flowId = player.active ? player.flow.id : null;
+  const wasPlaying = player.playing;
+  const progress = player.progress;
+  const eye = camera.position.clone();
+  const target = controls.target.clone();
+
+  build(design);
+
+  camera.position.copy(eye);
+  controls.target.copy(target);
+  controls.update();
+
+  const flow = flowId ? design.flows.find((f) => f.id === flowId) : null;
+  if (flow) {
+    selectFlow(flow);
+    current.player.progress = progress;
+    current.player.setPlaying(wasPlaying);
+    ui.controls.play.textContent = wasPlaying ? 'Pause' : 'Play';
+  }
 }
 
 function teardown() {
@@ -177,34 +268,20 @@ function selectFlow(flow) {
     player.stop();
     ui.markActiveFlow(null);
     ui.renderHop(null);
+    ui.renderSteps(null);
     return;
   }
 
+  ui.renderSteps(flow, current.design);
   player.play(flow);
   ui.markActiveFlow(flow.id);
   ui.controls.play.textContent = 'Pause';
 }
 
 function toggleLayer(layerId, visible) {
-  if (!current) return;
-  const { design, nodes, edges, planes } = current;
-
-  planes.get(layerId).group.visible = visible;
-
-  const affected = new Set(design.nodes.filter((n) => n.layer === layerId).map((n) => n.id));
-  for (const id of affected) {
-    const entry = nodes.get(id);
-    entry.group.visible = visible;
-  }
-  for (const entry of edges.values()) {
-    const touches = affected.has(entry.edge.from) || affected.has(entry.edge.to);
-    if (!touches) continue;
-    const bothEndsVisible = nodes.get(entry.edge.from).group.visible && nodes.get(entry.edge.to).group.visible;
-    entry.mesh.visible = bothEndsVisible;
-    entry.head.visible = bothEndsVisible;
-    if (entry.tailHead) entry.tailHead.visible = bothEndsVisible;
-    if (entry.label) entry.label.visible = bothEndsVisible;
-  }
+  if (visible) hiddenLayers.delete(layerId);
+  else hiddenLayers.add(layerId);
+  applyVisibility();
 }
 
 function subjectFor(pick) {
@@ -229,7 +306,7 @@ function updatePicking() {
 
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(world.children, true);
-  const hit = hits.find((h) => h.object.userData.pick && h.object.visible);
+  const hit = hits.find((h) => h.object.userData.pick && isShown(h.object));
   const pick = hit?.object.userData.pick ?? null;
   const id = pick ? `${pick.type}:${pick.id}` : null;
 
@@ -242,6 +319,20 @@ function updatePicking() {
 
   canvas.style.cursor = pick ? 'pointer' : 'default';
   if (!pinned) ui.renderInspector(subjectFor(pick));
+}
+
+/**
+ * Whether an object is really on screen.
+ *
+ * `visible` is not inherited, and the raycaster does not consult it at all, so
+ * a node hidden by its group — a layer unticked, or Focus mode — would still
+ * answer the pointer without this.
+ */
+function isShown(object) {
+  for (let node = object; node; node = node.parent) {
+    if (node.visible === false) return false;
+  }
+  return true;
 }
 
 function applyHighlight(key) {
@@ -306,6 +397,7 @@ ui.controls.stop.addEventListener('click', () => {
   current.player.stop();
   ui.markActiveFlow(null);
   ui.renderHop(null);
+  ui.renderSteps(null);
 });
 
 ui.controls.speed.addEventListener('input', () => {
@@ -313,6 +405,19 @@ ui.controls.speed.addEventListener('input', () => {
   current?.player.setSpeed(value);
   ui.controls.speedOut.textContent = `${value}×`;
 });
+
+ui.controls.theme.addEventListener('click', () => {
+  cycleTheme();
+});
+onThemeChange(retheme);
+ui.setThemeGlyph(themeChoice());
+
+ui.wireViewMode((mode) => {
+  viewMode = mode;
+  current?.player.setMode(mode);
+});
+ui.setViewMode(viewMode);
+ui.wireStepsPanel();
 
 ui.controls.resetView.addEventListener('click', () => {
   if (!current) return;

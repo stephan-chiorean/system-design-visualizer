@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { kindOf } from '../kinds.js';
+import { sceneTheme, tint } from '../theme.js';
 
 const S = 2.6; // base half-extent for node solids
 
@@ -37,6 +38,7 @@ function geometryFor(shape) {
 
 export function buildNodes(design, layout, root) {
   const entries = new Map();
+  const theme = sceneTheme();
 
   for (const node of design.nodes) {
     const spec = kindOf(node.kind);
@@ -44,7 +46,7 @@ export function buildNodes(design, layout, root) {
     const group = new THREE.Group();
     group.position.set(pos.x, pos.y, pos.z);
 
-    const base = new THREE.Color(spec.color);
+    const base = tint(new THREE.Color(spec.color), theme.solidShift);
     const material = new THREE.MeshStandardMaterial({
       color: base,
       roughness: 0.42,
@@ -102,14 +104,15 @@ export function buildNodes(design, layout, root) {
   return entries;
 }
 
-const DIM = new THREE.Color('#2a3140');
-
 /**
  * Dim a node toward the background instead of fading it out. Transparency would
  * fight the depth sort on fanned replica stacks; a colour lerp never does.
+ *
+ * The target is read per call rather than cached, because it is the background
+ * it lerps toward and that changes with the theme.
  */
 export function setNodeDim(entry, amount) {
-  entry.material.color.copy(entry.baseColor).lerp(DIM, amount);
+  entry.material.color.copy(entry.baseColor).lerp(new THREE.Color(sceneTheme().dim), amount);
   entry.ring.material.opacity = 0.22 * (1 - amount);
   entry.labelEl.style.opacity = String(1 - amount * 0.72);
 }

@@ -1,3 +1,6 @@
+/* Every colour in this file is a token, and the light theme below is nothing
+   but a second set of values for them. A hard-coded rgba() anywhere else is a
+   thing that will look wrong in one of the two themes. */
 :root {
   --bg: #080a0f;
   --panel: rgba(18, 22, 31, 0.82);
@@ -5,14 +8,96 @@
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.18);
   --fg: #e9ecf2;
+  --fg-soft: #c6ccd8;
   --muted: #8d95a6;
+  --faint: rgba(255, 255, 255, 0.32);
   --accent: #4dd8ff;
   --accent-dim: rgba(77, 216, 255, 0.16);
+  --accent-line: rgba(77, 216, 255, 0.22);
+  --accent-wash: rgba(77, 216, 255, 0.07);
+  --on-accent: #04222d;
   --warn: #ffb457;
   --danger: #ff6b6b;
+
+  /* Layered translucent fills, lightest first. */
+  --surface-0: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.08);
+
+  --topbar-a: rgba(8, 10, 15, 0.92);
+  --topbar-b: rgba(8, 10, 15, 0.55);
+  --scrim: rgba(8, 10, 15, 0.72);
+  --scrim-strong: rgba(4, 6, 10, 0.68);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* Labels float over the 3D scene, so they carry their own ground. */
+  --label-fg: #eef1f6;
+  --label-bg: rgba(10, 13, 19, 0.78);
+  --label-lit-fg: #ffffff;
+  --label-lit-bg: rgba(14, 40, 51, 0.92);
+  --edge-label-fg: rgba(233, 236, 242, 0.65);
+  --edge-label-bg: rgba(8, 10, 15, 0.7);
+
+  --error-bg: rgba(40, 14, 14, 0.92);
+  --error-border: rgba(255, 107, 107, 0.5);
+  --error-fg: #ffd9d9;
+  --warn-bg: rgba(44, 32, 12, 0.92);
+  --warn-border: rgba(255, 180, 87, 0.45);
+  --warn-fg: #ffe6c4;
+  --good: #86e8b6;
+
   --sidebar-w: 340px;
   --topbar-h: 52px;
+  color-scheme: dark;
   font-family: ui-sans-serif, -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
+}
+
+/* The switch stamps data-theme on <html>; "system" stamps whichever the OS is
+   currently asking for, so there is always exactly one source of truth. */
+:root[data-theme="light"] {
+  --bg: #eef1f6;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-solid: #ffffff;
+  --border: rgba(16, 24, 40, 0.12);
+  --border-strong: rgba(16, 24, 40, 0.22);
+  --fg: #1a2233;
+  --fg-soft: #3d475c;
+  --muted: #5d6879;
+  --faint: rgba(16, 24, 40, 0.38);
+  --accent: #0087b3;
+  --accent-dim: rgba(0, 135, 179, 0.14);
+  --accent-line: rgba(0, 135, 179, 0.3);
+  --accent-wash: rgba(0, 135, 179, 0.07);
+  --on-accent: #ffffff;
+  --warn: #a35a00;
+  --danger: #c0352f;
+
+  --surface-0: rgba(16, 24, 40, 0.03);
+  --surface-1: rgba(16, 24, 40, 0.05);
+  --surface-2: rgba(16, 24, 40, 0.09);
+
+  --topbar-a: rgba(248, 250, 253, 0.94);
+  --topbar-b: rgba(248, 250, 253, 0.6);
+  --scrim: rgba(226, 231, 240, 0.78);
+  --scrim-strong: rgba(180, 190, 206, 0.6);
+  --shadow: 0 24px 60px rgba(16, 24, 40, 0.18);
+
+  --label-fg: #1a2233;
+  --label-bg: rgba(255, 255, 255, 0.86);
+  --label-lit-fg: #04222d;
+  --label-lit-bg: rgba(214, 242, 252, 0.96);
+  --edge-label-fg: rgba(26, 34, 51, 0.7);
+  --edge-label-bg: rgba(255, 255, 255, 0.78);
+
+  --error-bg: rgba(253, 232, 232, 0.96);
+  --error-border: rgba(192, 53, 47, 0.4);
+  --error-fg: #7a1f1b;
+  --warn-bg: rgba(253, 243, 224, 0.96);
+  --warn-border: rgba(163, 90, 0, 0.35);
+  --warn-fg: #6b3d00;
+  --good: #1f8b5b;
+
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -79,7 +164,7 @@ html, body {
   gap: 12px;
   padding: 0 16px;
   padding-top: env(safe-area-inset-top, 0px);
-  background: linear-gradient(to bottom, rgba(8, 10, 15, 0.92), rgba(8, 10, 15, 0.55));
+  background: linear-gradient(to bottom, var(--topbar-a), var(--topbar-b));
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   z-index: 20;
@@ -117,11 +202,11 @@ button {
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 button.ghost { background: transparent; color: var(--fg); }
-button.ghost:hover { background: rgba(255, 255, 255, 0.07); }
+button.ghost:hover { background: var(--surface-2); }
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #04222d;
+  color: var(--on-accent);
   font-weight: 600;
 }
 button.primary:hover { filter: brightness(1.08); }
@@ -169,13 +254,13 @@ dl.meta dd { margin: 0; }
   display: block;
   width: 100%;
   text-align: left;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--surface-0);
   border: 1px solid var(--border);
   color: var(--fg);
   padding: 9px 11px;
   line-height: 1.35;
 }
-.flow-btn:hover { background: rgba(255, 255, 255, 0.075); }
+.flow-btn:hover { background: var(--surface-2); }
 .flow-btn.active {
   border-color: var(--accent);
   background: var(--accent-dim);
@@ -195,8 +280,8 @@ dl.meta dd { margin: 0; }
   margin-top: 12px;
   padding: 10px 11px;
   border-radius: 8px;
-  background: rgba(77, 216, 255, 0.07);
-  border: 1px solid rgba(77, 216, 255, 0.22);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
   font-size: 12px;
   line-height: 1.5;
   min-height: 42px;
@@ -221,10 +306,10 @@ dl.meta dd { margin: 0; }
 }
 .inspector h3 { margin: 0 0 6px; font-size: 14px; letter-spacing: -0.01em; }
 .inspector p { margin: 0 0 9px; }
-.inspector .ins-note { color: #c6ccd8; }
+.inspector .ins-note { color: var(--fg-soft); }
 .inspector .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .inspector .stat {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 8px;
@@ -245,7 +330,7 @@ dl.meta dd { margin: 0; }
   border-radius: 6px;
   cursor: pointer;
 }
-.layer-row:hover { background: rgba(255, 255, 255, 0.05); }
+.layer-row:hover { background: var(--surface-1); }
 .layer-row input { accent-color: var(--accent); }
 .layer-row .swatch { width: 9px; height: 9px; border-radius: 2px; }
 .layer-row .count { margin-left: auto; color: var(--muted); font-size: 11px; }
@@ -256,8 +341,8 @@ dl.meta dd { margin: 0; }
   font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
   font-size: 11.5px;
   font-weight: 600;
-  color: #eef1f6;
-  background: rgba(10, 13, 19, 0.78);
+  color: var(--label-fg);
+  background: var(--label-bg);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 3px 8px;
@@ -268,8 +353,8 @@ dl.meta dd { margin: 0; }
 }
 .node-label.lit {
   border-color: var(--accent);
-  background: rgba(14, 40, 51, 0.92);
-  color: #ffffff;
+  background: var(--label-lit-bg);
+  color: var(--label-lit-fg);
 }
 .node-label .sub {
   display: block;
@@ -282,15 +367,15 @@ dl.meta dd { margin: 0; }
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.34);
+  color: var(--faint);
   white-space: nowrap;
   user-select: none;
 }
 
 .edge-label {
   font-size: 10px;
-  color: rgba(233, 236, 242, 0.65);
-  background: rgba(8, 10, 15, 0.7);
+  color: var(--edge-label-fg);
+  background: var(--edge-label-bg);
   border-radius: 4px;
   padding: 1px 5px;
   white-space: nowrap;
@@ -305,7 +390,7 @@ dl.meta dd { margin: 0; }
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgba(8, 10, 15, 0.72);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
 }
 .drop-card {
@@ -323,17 +408,17 @@ dl.meta dd { margin: 0; }
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   max-width: min(520px, calc(100vw - var(--sidebar-w) - 48px));
   z-index: 30;
-  background: rgba(40, 14, 14, 0.92);
-  border: 1px solid rgba(255, 107, 107, 0.5);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 12px;
   line-height: 1.5;
-  color: #ffd9d9;
+  color: var(--error-fg);
 }
 .errors h4 { margin: 0 0 6px; font-size: 12px; color: var(--danger); }
 .errors ul { margin: 0; padding-left: 18px; }
-.errors.warn { background: rgba(44, 32, 12, 0.92); border-color: rgba(255, 180, 87, 0.45); color: #ffe6c4; }
+.errors.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-fg); }
 .errors.warn h4 { color: var(--warn); }
 
 .help {
@@ -342,7 +427,7 @@ dl.meta dd { margin: 0; }
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--faint);
   user-select: none;
   pointer-events: none;
 }
@@ -368,7 +453,7 @@ dl.meta dd { margin: 0; }
   z-index: 60;
   display: grid;
   place-items: center;
-  background: rgba(4, 6, 10, 0.68);
+  background: var(--scrim-strong);
   backdrop-filter: blur(4px);
   padding: 24px;
 }
@@ -380,7 +465,7 @@ dl.meta dd { margin: 0; }
   border: 1px solid var(--border-strong);
   border-radius: 14px;
   padding: 22px 24px 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow);
 }
 .modal-card h2 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.01em; }
 .modal-card > p.muted { font-size: 12.5px; line-height: 1.55; margin: 0 0 16px; }
@@ -399,8 +484,8 @@ dl.meta dd { margin: 0; }
 .modal-close:hover { color: var(--fg); }
 
 .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
-.modal-actions button.danger { border-color: rgba(255, 107, 107, 0.5); color: #ffbdbd; }
-.modal-actions button.danger:hover { background: rgba(255, 107, 107, 0.12); }
+.modal-actions button.danger { border-color: var(--error-border); color: var(--danger); }
+.modal-actions button.danger:hover { background: var(--error-bg); }
 
 .skill-targets { display: flex; flex-direction: column; gap: 8px; }
 .skill-row {
@@ -410,7 +495,7 @@ dl.meta dd { margin: 0; }
   padding: 11px 13px;
   border: 1px solid var(--border);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-0);
 }
 .skill-row b { font-size: 13px; display: block; }
 .skill-path {
@@ -429,8 +514,8 @@ dl.meta dd { margin: 0; }
   border: 1px solid var(--border-strong);
   color: var(--muted);
 }
-.skill-badge.good { color: #86e8b6; border-color: rgba(134, 232, 182, 0.4); background: rgba(134, 232, 182, 0.1); }
-.skill-badge.warn { color: var(--warn); border-color: rgba(255, 180, 87, 0.4); background: rgba(255, 180, 87, 0.1); }
+.skill-badge.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); background: color-mix(in srgb, var(--good) 10%, transparent); }
+.skill-badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: color-mix(in srgb, var(--warn) 10%, transparent); }
 
 .skill-note { font-size: 11.5px; line-height: 1.5; color: var(--muted); margin: 12px 0 0; min-height: 17px; }
 
@@ -439,3 +524,167 @@ dl.meta dd { margin: 0; }
 :root[data-desktop] #topbar { padding-left: 84px; }
 :root[data-desktop] #stage,
 :root[data-desktop] #sidebar { top: var(--topbar-h); }
+
+/* ---------- top-bar switches ---------- */
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button:hover { background: var(--surface-1); color: var(--fg); }
+.segmented button.on {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.icon-btn {
+  padding: 5px 9px;
+  font-size: 13px;
+  line-height: 1;
+  min-width: 32px;
+}
+
+/* ---------- steps overlay ---------- */
+
+/* Anchored to the scene, not the window: on a wide display the sidebar is far
+   enough away that a panel pinned to the true left edge would be read with the
+   head, not the eyes. */
+.steps {
+  position: fixed;
+  left: 16px;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 16px);
+  width: min(320px, calc(100vw - var(--sidebar-w) - 48px));
+  max-height: calc(100vh - var(--topbar-h) - 90px);
+  display: flex;
+  flex-direction: column;
+  z-index: 18;
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.steps-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.steps-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--muted);
+}
+.steps-toggle {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 6px;
+}
+.steps-toggle:hover { color: var(--fg); background: var(--surface-1); }
+
+.steps-body {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  counter-reset: step;
+}
+
+/* Every step is on screen at once — the shape of the whole request is part of
+   what you are reading. Only the current one is at full contrast; the rest are
+   legible-on-demand, which hovering is. */
+.step {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: default;
+  transition: opacity 0.14s ease, background 0.14s ease, color 0.14s ease;
+  user-select: text;
+}
+.step::before {
+  content: counter(step);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  padding-top: 1px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.step:hover {
+  opacity: 1;
+  color: var(--fg);
+  background: var(--surface-1);
+}
+.step.current {
+  opacity: 1;
+  color: var(--fg);
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.step.current::before { color: var(--accent); }
+.step .step-body { min-width: 0; }
+.step .step-node {
+  display: block;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  margin-bottom: 1px;
+}
+.step.current .step-node { color: var(--accent); }
+.step .step-text { display: block; }
+.step .step-text:empty::after {
+  content: "—";
+  color: var(--faint);
+}
+
+/* The reopen affordance sits exactly where the panel was, so hiding and
+   showing it does not move the eye. */
+.steps-show {
+  position: fixed;
+  left: 16px;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 16px);
+  z-index: 18;
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+}
+.steps-show:hover { color: var(--fg); background: var(--surface-2); }
+
+@media (max-width: 860px) {
+  .steps { display: none; }
+  .steps-show { display: none; }
+}

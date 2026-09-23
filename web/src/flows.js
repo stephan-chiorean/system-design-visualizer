@@ -15,6 +15,13 @@
  * The main trail follows the first of them, and every other branch gets its own
  * short-lived particle trail that shares the fork's slice of the timeline, so a
  * fan-out reads as simultaneous rather than as a sequence.
+ *
+ * Two view modes. In `explore` everything stays on screen and the flow is told
+ * apart by dimming; in `focus` the design falls away entirely and only what the
+ * request touches is drawn. The player does not hide anything itself — layer
+ * toggles are the other thing deciding what is visible, and two owners of one
+ * flag is a bug waiting to happen — so it publishes the set it wants and lets
+ * main.js combine the two.
  */
 
 import * as THREE from 'three';
@@ -27,14 +34,17 @@ const PARTICLE_SPACING = 0.055;  // in normalized path units
 const BASE_DURATION = 1.45;      // seconds per hop at 1× speed
 const HOP_HOLD = 0.35;           // fraction of a hop spent lit after arrival
 const DEFAULT_COLOR = '#9bf0ff';
+const FALLBACK_COLOR = new THREE.Color(DEFAULT_COLOR);
 
 export class FlowPlayer {
-  constructor({ design, layout, nodes, edges, root, onHop }) {
+  constructor({ design, layout, nodes, edges, root, onHop, onVisibility }) {
     this.design = design;
     this.layout = layout;
     this.nodes = nodes;
     this.edges = edges;
     this.onHop = onHop ?? (() => {});
+    this.onVisibility = onVisibility ?? (() => {});
+    this.mode = 'explore';
 
     this.group = new THREE.Group();
     root.add(this.group);
@@ -133,6 +143,7 @@ export class FlowPlayer {
     this.applyFocus();
     this.announceOrigin();
     for (const p of this.particles) p.visible = true;
+    this.onVisibility();
   }
 
   /**
@@ -159,14 +170,8 @@ export class FlowPlayer {
 
   /** A flow may declare its own particle colour; otherwise use the house one. */
   applyColor(color) {
-    const value = color || DEFAULT_COLOR;
-    for (const particle of this.allParticles()) {
-      try {
-        particle.material.color.set(value);
-      } catch {
-        particle.material.color.set(DEFAULT_COLOR);
-      }
-    }
+    const resolved = resolveColor(color);
+    for (const particle of this.allParticles()) particle.material.color.copy(resolved);
   }
 
   *allParticles() {
@@ -199,6 +204,7 @@ export class FlowPlayer {
     this.clearBranchParticles();
     this.clearFocus();
     this.onHop(null);
+    this.onVisibility();
   }
 
   /** Branch trails are created per flow, so they have to be torn down per flow. */
@@ -224,6 +230,27 @@ export class FlowPlayer {
 
   setSpeed(multiplier) {
     this.speed = multiplier;
+  }
+
+  /** 'explore' (dim what is off-path) or 'focus' (hide it). */
+  setMode(mode) {
+    this.mode = mode === 'focus' ? 'focus' : 'explore';
+    this.onVisibility();
+  }
+
+  /**
+   * What the scene should show, or null for "everything".
+   *
+   * Edges are named rather than inferred from the node set: two nodes can both
+   * be on the path and still have a connection the request never takes, and
+   * drawing it would answer a question nobody asked.
+   */
+  get focusSets() {
+    if (this.mode !== 'focus' || !this.flow) return null;
+    const edges = new Set(
+      this.segments.flatMap((s) => [s.edgeId, ...(s.branchEdgeIds ?? [])]).filter(Boolean)
+    );
+    return { nodes: new Set(this.flow.flatPath), edges };
   }
 
   get active() {
@@ -361,6 +388,21 @@ export class FlowPlayer {
     this.geometry.dispose();
     this.group.removeFromParent();
   }
+}
+
+/**
+ * Resolve a flow's colour, falling back when three.js cannot read it.
+ *
+ * `Color.set` does not throw on a string it fails to parse — it warns to the
+ * console and leaves the colour untouched — so the only honest test is to try
+ * it from two different starting points. A value that parses lands both probes
+ * on the same colour; one that does not leaves each where it started.
+ */
+function resolveColor(value) {
+  if (!value) return FALLBACK_COLOR;
+  const fromBlack = new THREE.Color(0x000000).set(value);
+  const fromWhite = new THREE.Color(0xffffff).set(value);
+  return fromBlack.equals(fromWhite) ? fromBlack : FALLBACK_COLOR;
 }
 
 function reverseCurve(curve) {
